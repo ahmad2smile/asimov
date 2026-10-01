@@ -1,0 +1,99 @@
+# Local development infrastructure. Start with `npm run infra:up`.
+# Every port is bound to 127.0.0.1, so nothing is reachable from other machines.
+services:
+  spacetimedb:
+    # Keep this tag in step with the `spacetime` CLI and the `spacetimedb`
+    # crate and npm package (currently 2.10.x).
+    image: clockworklabs/spacetime:v2.10.1
+    command: ["start", "--non-interactive"]
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      # The server keeps its data in ~/.local/share/spacetime and the key that
+      # signs client identities in ~/.config/spacetime. Persisting the whole
+      # home directory keeps both, so databases and saved CLI/client tokens
+      # survive container restarts and recreation.
+      - spacetime-home:/home/spacetime
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/v1/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  tdengine:
+    # TDengine TSDB Community Edition (published as tdengine/tdengine before 3.3.7).
+    image: tdengine/tsdb:3.4.2.8
+    # TDengine identifies its node by FQDN, so give it a stable one.
+    hostname: tdengine
+    environment:
+      TAOS_FQDN: tdengine
+    ports:
+      - "127.0.0.1:6030:6030" # native client protocol
+      - "127.0.0.1:6041:6041" # taosAdapter: REST (/rest/sql) and WebSocket
+      - "127.0.0.1:6060:6060" # taosExplorer web UI
+    volumes:
+      - tdengine-data:/var/lib/taos
+      - tdengine-log:/var/log/taos
+    healthcheck:
+      test: ["CMD", "taos-check", "service"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  tdengine-init:
+    # One-shot, run by `npm run infra:up`: applies config/tdengine.sql
+    # (idempotent; one statement per line). The profile keeps it out of `up`.
+    profiles: [init]
+    image: tdengine/tsdb:3.4.2.8
+    depends_on:
+      tdengine:
+        condition: service_healthy
+    volumes:
+      - ./config/tdengine.sql:/tdengine.sql:ro
+    entrypoint: ["taos", "-h", "tdengine", "-f", "/tdengine.sql"]
+
+  mosquitto:
+    image: eclipse-mosquitto:2.1.2-alpine
+    ports:
+      - "127.0.0.1:1883:1883" # MQTT
+      - "127.0.0.1:9001:9001" # MQTT over WebSockets
+    volumes:
+      - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/broker/uptime", "-C", "1", "-W", "3"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  agv-simulator:
+    # Simulated AGV fleet (several sites, mixed manufacturers) publishing
+    # VDA 5050 2.1.0 connection/state/visualization messages to
+    # uagv/v2/<manufacturer>/<serialNumber>/<topic>. See simulator/.
+    build: ./simulator
+    image: asimov-agv-simulator
+    # Forward SIGTERM so the AGVs publish OFFLINE before disconnecting.
+    init: true
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    environment:
+      MQTT_URL: mqtt://mosquitto:1883
+      SIM_SEED: ${SIM_SEED:-asimov}
+      SITE_COUNT: ${SITE_COUNT:-5}
+      ROBOTS_PER_SITE_MIN: ${ROBOTS_PER_SITE_MIN:-2}
+      ROBOTS_PER_SITE_MAX: ${ROBOTS_PER_SITE_MAX:-5}
+      STATE_MAX_INTERVAL_MS: ${STATE_MAX_INTERVAL_MS:-30000}
+      VISUALIZATION_INTERVAL_MS: ${VISUALIZATION_INTERVAL_MS:-1000}
+    restart: unless-stopped
+
+volumes:
+  spacetime-home:
+  tdengine-data:
+  tdengine-log:
+  mosquitto-data:

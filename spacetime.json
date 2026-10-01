@@ -1,0 +1,5 @@
+{
+  "module-path": "./backend",
+  "server": "local",
+  "database": "asimov"
+}
