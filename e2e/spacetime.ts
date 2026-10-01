@@ -20,14 +20,20 @@ export const remove = () => spacetime("delete", DB, ...BASE, "--yes");
 const call = (reducer: string, ...args: unknown[]) =>
   spacetime("call", DB, ...BASE, reducer, ...args.map((a) => JSON.stringify(a)));
 
-export const upsertMap = (mapId: string) => call("upsert_map", mapId, { none: [] });
+export const upsertMap = (mapId: string, name?: string) =>
+  call("upsert_map", mapId, name === undefined ? { none: [] } : { some: name });
 
 export const upsertAgv = (manufacturer: string, serialNumber: string, mapId: string) =>
   call("upsert_agv", manufacturer, serialNumber, mapId);
 
-export const upsertState = (manufacturer: string, serialNumber: string, errorType?: string) =>
+export const upsertState = (
+  manufacturer: string,
+  serialNumber: string,
+  errorType?: string,
+  orderId = "",
+) =>
   call("upsert_agv_state", manufacturer, serialNumber, {
-    order_id: "",
+    order_id: orderId,
     last_node_id: "",
     error: errorType
       ? { some: { error_type: errorType, error_level: { warning: [] } } }

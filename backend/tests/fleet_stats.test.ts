@@ -64,6 +64,7 @@ const NO_ERROR = { none: [] };
 const ERROR = {
   some: { error_type: 'obstacleDetected', error_level: { warning: [] } },
 };
+const ERROR_STATE = { order_id: '', last_node_id: '', error: ERROR };
 let failures = 0;
 
 const report = (ok: boolean, label: string, detail: string) => {
@@ -143,7 +144,17 @@ try {
     );
   check('page 1 has a cursor', page('', { none: [] }, 1), '[0,"a/1"]');
   check('last page has no cursor', page('', { some: 'a/1' }, 1), '[1,[]]');
-  check('search narrows the page', page('b/', { none: [] }, 5), '[1,[]]');
+  // m1 now holds a/1 (connection broken, so "Offline") and b/2 (online with
+  // a warning, so "Idle", on order "ord-9"). Its site name is "M1".
+  call('upsert_agv_state', 'b', '2', { ...ERROR_STATE, order_id: 'ord-9' });
+  check('search matches the AGV id', page('b/', { none: [] }, 5), '[["b/2"],');
+  check('search matches part of the AGV id', page('/1', { none: [] }, 5), '[["a/1"],');
+  check('search matches the order', page('ord-9', { none: [] }, 5), '[["b/2"],');
+  check('search matches the activity', page('Offline', { none: [] }, 5), '[["a/1"],');
+  check('search matches the site', page('M1', { none: [] }, 5), '[["a/1","b/2"],');
+  check('search is case-sensitive', page('offline', { none: [] }, 5), '[[],');
+  check('page after the cursor', page('', { some: 'a/1' }, 5), '[["b/2"],');
+  check('page after the last match is empty', page('a/', { some: 'b/2' }, 5), '[[],');
 } finally {
   spacetime('delete', DB, ...BASE, '--yes');
 }

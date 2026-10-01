@@ -1,18 +1,18 @@
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { siteIdOf, siteNameOf } from '@/lib/fleet';
+import type { Map as MapRow } from '@/module_bindings/types';
 
 interface FleetFiltersProps {
   query: string;
   onQueryChange: (query: string) => void;
   mapId: string | undefined;
-  mapIds: readonly string[];
+  maps: readonly MapRow[];
   onMapChange: (mapId: string) => void;
 }
 
 /** Search box and site picker above the AGV table. */
-export function FleetFilters({ query, onQueryChange, mapId, mapIds, onMapChange }: FleetFiltersProps) {
+export function FleetFilters({ query, onQueryChange, mapId, maps, onMapChange }: FleetFiltersProps) {
   return (
     <div className="flex flex-wrap gap-3">
       <div className="relative w-72">
@@ -29,9 +29,9 @@ export function FleetFilters({ query, onQueryChange, mapId, mapIds, onMapChange 
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {mapIds.map(id => (
-            <SelectItem key={id} value={id}>
-              {siteNameOf(siteIdOf(id))}
+          {maps.map(m => (
+            <SelectItem key={m.mapId} value={m.mapId}>
+              {m.name}
             </SelectItem>
           ))}
         </SelectContent>

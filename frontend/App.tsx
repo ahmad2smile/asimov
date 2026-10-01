@@ -17,11 +17,8 @@ export default function App() {
   const [fleetStats] = useTable(tables.fleetStats);
   const [maps, mapsReady] = useTable(tables.map);
 
-  const mapIds = useMemo(
-    () =>
-      [...maps]
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((m) => m.mapId),
+  const sortedMaps = useMemo(
+    () => [...maps].sort((a, b) => a.name.localeCompare(b.name)),
     [maps],
   );
 
@@ -30,7 +27,7 @@ export default function App() {
 
   // Always exactly one map: the picked one, or the first while none is
   // picked or the picked one is gone.
-  const mapId = mapIds.find((id) => id === pickedMapId) ?? mapIds[0];
+  const mapId = (sortedMaps.find((m) => m.mapId === pickedMapId) ?? sortedMaps[0])?.mapId;
 
   // The list stays mounted while an AGV is open, so its filters and page are
   // kept for the way back. It just stops fetching and subscribing.
@@ -57,10 +54,10 @@ export default function App() {
         query={query}
         onQueryChange={setQuery}
         mapId={mapId}
-        mapIds={mapIds}
+        maps={sortedMaps}
         onMapChange={setPickedMapId}
       />
-      {mapsReady && mapIds.length === 0 ? (
+      {mapsReady && sortedMaps.length === 0 ? (
         <p className="rounded-xl border bg-card p-8 text-center text-muted-foreground">
           No maps in SpacetimeDB yet.
         </p>

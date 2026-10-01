@@ -26,7 +26,7 @@ After changing the module: `npm run spacetime:publish`, then
 `npm run spacetime:generate`. For an incompatible schema change, add
 `--delete-data=on-conflict` (clears data).
 
-- Module test: `npm run spacetime:test`. Dashboard E2E (Playwright): `PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install chromium` once, then `npm run e2e`. Both need `infra:up`.
+- Module test: `npm run spacetime:test`. Dashboard E2E (Playwright): `PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install chromium` once, then `npm run e2e`. Both need `infra:up`. Each E2E test saves a screenshot to `test-results/screenshots/<file> - <test>.png`.
 - Seed one simulated fleet snapshot: `scripts/seed-spacetime.sh [database]`.
 
 Add shadcn components with `npx shadcn@latest add <name>` (config in `components.json`).

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const rows = (page: import("@playwright/test").Page) => page.locator("tbody tr");
 
@@ -10,8 +10,20 @@ test.beforeEach(async ({ page }) => {
 test("shows the AGV list of the first map", async ({ page }) => {
   await expect(rows(page)).toHaveCount(10);
   await expect(rows(page).first()).toContainText("AGV-01");
-  await expect(rows(page).first()).toContainText("Berlin");
+  await expect(rows(page).first()).toContainText("Berlin Central Hub");
   await expect(page.getByText("1–10")).toBeVisible();
+});
+
+test("shows the map name set by upsert_map as the site", async ({ page }) => {
+  await expect(rows(page).first().getByRole("cell", { name: "Berlin Central Hub", exact: true })).toBeVisible();
+  await expect(page.getByRole("combobox")).toHaveText("Berlin Central Hub");
+});
+
+test("shows the mapId as the site of a map without a name", async ({ page }) => {
+  await page.getByRole("combobox").click();
+  await page.getByRole("option", { name: "paris-warehouse", exact: true }).click();
+  await expect(rows(page)).toHaveCount(2);
+  await expect(rows(page).first().getByRole("cell", { name: "paris-warehouse", exact: true })).toBeVisible();
 });
 
 test("pages through the AGVs", async ({ page }) => {
@@ -31,9 +43,45 @@ test("searches AGVs by name", async ({ page }) => {
   await expect(rows(page).first()).toContainText("Obstacle detected");
 });
 
+test("searches AGVs by part of the AGV id", async ({ page }) => {
+  await page.getByPlaceholder("Search AGVs").fill("GV-1");
+  await expect(rows(page)).toHaveCount(3);
+  await expect(rows(page).first()).toContainText("AGV-10");
+});
+
+test("searches AGVs by order", async ({ page }) => {
+  await page.getByPlaceholder("Search AGVs").fill("order-77");
+  await expect(rows(page)).toHaveCount(1);
+  await expect(rows(page).first()).toContainText("AGV-05");
+});
+
+test("searches AGVs by activity", async ({ page }) => {
+  await page.getByPlaceholder("Search AGVs").fill("Offline");
+  await expect(rows(page)).toHaveCount(1);
+  await expect(rows(page).first()).toContainText("AGV-07");
+});
+
+test("searches AGVs by site", async ({ page }) => {
+  await page.getByPlaceholder("Search AGVs").fill("Central Hub");
+  await expect(rows(page)).toHaveCount(10);
+  await expect(page.getByRole("button", { name: "Next page" })).toBeEnabled();
+});
+
+test("searches AGVs by the mapId of a map without a name", async ({ page }) => {
+  await page.getByRole("combobox").click();
+  await page.getByRole("option", { name: "paris-warehouse", exact: true }).click();
+  await page.getByPlaceholder("Search AGVs").fill("paris-warehouse");
+  await expect(rows(page)).toHaveCount(2);
+});
+
+test("search is case-sensitive", async ({ page }) => {
+  await page.getByPlaceholder("Search AGVs").fill("offline");
+  await expect(page.getByText("No AGVs match.")).toBeVisible();
+});
+
 test("switches map", async ({ page }) => {
   await page.getByRole("combobox").click();
-  await page.getByRole("option", { name: "Paris" }).click();
+  await page.getByRole("option", { name: "paris-warehouse", exact: true }).click();
   await expect(rows(page)).toHaveCount(2);
   await expect(rows(page).first()).toContainText("P-1");
 });

@@ -35,7 +35,7 @@ export const map = table(
 // One row per AGV, created by `upsert_agv`. VDA 5050 identifies an AGV by
 // manufacturer + serial number, kept here as the primary key `agvId`.
 //
-// `by_site` orders a map's AGVs by `agvId` for paging and prefix search
+// `by_site` orders a map's AGVs by `agvId` for paging
 // (the primary key only supports point lookups).
 export const agv = table(
   {

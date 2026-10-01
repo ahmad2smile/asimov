@@ -1,11 +1,13 @@
-// Dashboard read side, built so no call scans more than one page of AGVs.
+// Dashboard read side.
 //
 // - `agv_page` finds which AGVs are on a page; clients then subscribe to
-//   exactly those `agv_state` rows for live updates.
+//   exactly those `agv_state` rows for live updates. Without a search it reads
+//   one page of AGVs; with one it may walk the rest of the map.
 // - `fleet_stats` is a live fleet-wide count of maps, AGVs, online AGVs, and
 //   alerts, read from table counts and indexes.
 
 import { Range, t, type Bound } from "spacetimedb/server";
+import { activityOf } from "./display";
 import spacetimedb from "./schema";
 
 const MAX_PAGE_SIZE = 100;
@@ -19,9 +21,11 @@ const AgvPage = t.object("AgvPage", {
 });
 
 // AGVs on one page of one map, ordered by `agvId` ("<manufacturer>/<serialNumber>").
-// `search` is a case-sensitive prefix of the `agvId`; `afterAgvId` is the cursor
-// from the previous page. One `by_site` index seek plus one page, independent
-// of page depth.
+// `search` keeps AGVs whose AGV id, site, order or activity contains it
+// (case-sensitive; empty keeps all). `afterAgvId` is the cursor from the
+// previous page; the page starts right after it, even if that leaves it empty.
+// One `by_site` index seek, then a walk until the page fills, so a rare search
+// term walks the rest of the map.
 export const agvPage = spacetimedb.procedure(
   { name: "agv_page" },
   {
@@ -32,20 +36,30 @@ export const agvPage = spacetimedb.procedure(
   },
   AgvPage,
   (ctx, { mapId, search, afterAgvId, limit }) => {
-    const prefix = search.trim();
+    const term = search.trim();
     const size = Math.min(Math.max(limit, 1), MAX_PAGE_SIZE);
-    // A cursor before the search prefix (stale, or from another search) is ignored.
     const from: Bound<string> =
-      afterAgvId != null && afterAgvId >= prefix
-        ? { tag: "excluded", value: afterAgvId }
-        : { tag: "included", value: prefix };
+      afterAgvId != null ? { tag: "excluded", value: afterAgvId } : { tag: "unbounded" };
 
     return ctx.withTx((tx) => {
       const agvIds: string[] = [];
+      // An unknown map has no AGVs, so its name is never compared.
+      const siteName = tx.db.map.mapId.find(mapId)?.name ?? "";
+
+      // Each field as the dashboard shows it. An AGV without a state row has
+      // no order or activity yet.
+      const matches = (agvId: string) => {
+        if (agvId.includes(term) || siteName.includes(term)) return true;
+        const state = tx.db.agvState.agvId.find(agvId);
+        return (
+          state != null &&
+          (state.orderId.includes(term) || activityOf(state).includes(term))
+        );
+      };
 
       for (const a of tx.db.agv.by_site.filter([mapId, new Range(from)])) {
-        if (!a.agvId.startsWith(prefix) || agvIds.length > size) break;
-        agvIds.push(a.agvId);
+        if (agvIds.length > size) break;
+        if (matches(a.agvId)) agvIds.push(a.agvId);
       }
 
       const nextAgvId = agvIds.length > size ? agvIds[size - 1] : undefined;
