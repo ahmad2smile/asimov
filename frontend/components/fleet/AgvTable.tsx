@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { humanize, type Agv } from '@/lib/fleet';
-import { ActivityLabel, ConnectionIcon, connectionLabel } from './indicators';
+import { ActivityLabel, connectionLabel } from './indicators';
 
 interface AgvTableProps {
   agvs: Agv[];
@@ -48,7 +48,6 @@ export function AgvTable({ agvs, selectedId, onSelect, footer }: AgvTableProps) 
               >
                 <TableCell>
                   <div className="flex items-center gap-2" title={connectionLabel(agv.connection)}>
-                    <ConnectionIcon connection={agv.connection} />
                     <span className="font-medium">{agv.serialNumber}</span>
                     <span className="text-muted-foreground">{agv.manufacturer}</span>
                   </div>
