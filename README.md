@@ -30,12 +30,22 @@ npm run dev         # dashboard at http://localhost:5173
 
 Supporting Services are described in [services/README.md](services/README.md).
 
-# NOTE
+## NOTE
 
-## Done
+### Done
 
 Project only shows basic Backend + Ingestion focusing on ingestion throughput and realtime backend capability for frontend presentation.
 
-## Planned
+### Planned
 
-Ingest visualization from TimeSeries for graph/simulation.
+- Ingest visualization from TimeSeries for graph/simulation.
+- Increase Backend Ingestion to something around ~300,000 transactions/sec (SpacetimeDb Bench Limits)
+
+## Dashboard
+
+<img width="1290" height="849" alt="Screenshot 2026-10-05 at 12 27 11" src="https://github.com/user-attachments/assets/7f08b9fe-e074-45e9-a7cd-34fcba23d182" />
+
+## Observability
+
+<img width="1457" height="856" alt="image" src="https://github.com/user-attachments/assets/f8c52b04-3eaf-42bd-8f1f-4806ba13f6eb" />
+
