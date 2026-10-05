@@ -18,6 +18,15 @@ export const Agv = __t.object("Agv", {
 });
 export type Agv = __Infer<typeof Agv>;
 
+export const AgvConnection = __t.object("AgvConnection", {
+  agvId: __t.string(),
+  get connectionState() {
+    return ConnectionState;
+  },
+  sentAt: __t.timestamp(),
+});
+export type AgvConnection = __Infer<typeof AgvConnection>;
+
 export const AgvError = __t.object("AgvError", {
   errorType: __t.string(),
   get errorLevel() {
@@ -36,22 +45,24 @@ export const AgvState = __t.object("AgvState", {
   agvId: __t.string(),
   orderId: __t.string(),
   lastNodeId: __t.string(),
+  driving: __t.bool(),
+  paused: __t.bool(),
+  charging: __t.bool(),
   get error() {
     return __t.option(AgvError);
   },
-  get connectionState() {
-    return ConnectionState;
-  },
   updatedAt: __t.timestamp(),
   alert: __t.bool(),
-  stateSentAt: __t.option(__t.timestamp()),
-  connectionSentAt: __t.option(__t.timestamp()),
+  stateSentAt: __t.timestamp(),
 });
 export type AgvState = __Infer<typeof AgvState>;
 
 export const AgvStateFields = __t.object("AgvStateFields", {
   orderId: __t.string(),
   lastNodeId: __t.string(),
+  driving: __t.bool(),
+  paused: __t.bool(),
+  charging: __t.bool(),
   get error() {
     return __t.option(AgvError);
   },

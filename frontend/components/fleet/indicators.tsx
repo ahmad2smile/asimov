@@ -1,7 +1,10 @@
 // Small status glyphs shared by the table, map legend, and detail card.
 import {
   CircleAlert,
+  BatteryCharging,
   CircleCheck,
+  CirclePause,
+  Truck,
   Wifi,
   WifiOff,
   type LucideIcon,
@@ -28,6 +31,9 @@ export function connectionLabel(connection: ConnectionTag | undefined): string {
 const ACTIVITY: Record<Activity, { icon: LucideIcon; className: string }> = {
   Offline: { icon: WifiOff, className: 'text-muted-foreground' },
   Error: { icon: CircleAlert, className: 'text-destructive' },
+  Charging: { icon: BatteryCharging, className: 'text-online' },
+  Driving: { icon: Truck, className: 'text-online' },
+  Paused: { icon: CirclePause, className: 'text-warning' },
   Idle: { icon: CircleCheck, className: 'text-muted-foreground' },
 };
 

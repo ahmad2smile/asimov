@@ -45,6 +45,7 @@ import * as AgvPageProcedure from "./agv_page_procedure";
 
 // Import all table schema definitions
 import AgvRow from "./agv_table";
+import AgvConnectionRow from "./agv_connection_table";
 import AgvStateRow from "./agv_state_table";
 import FleetStatsRow from "./fleet_stats_table";
 import MapRow from "./map_table";
@@ -68,6 +69,20 @@ const tablesSchema = __schema({
       { name: 'agv_agv_id_key', constraint: 'unique', columns: ['agvId'] },
     ],
   }, AgvRow),
+  agvConnection: __table({
+    name: 'agv_connection',
+    indexes: [
+      { accessor: 'agvId', name: 'agv_connection_agv_id_idx_btree', algorithm: 'btree', columns: [
+        'agvId',
+      ] },
+      { accessor: 'connectionState', name: 'agv_connection_connection_state_idx_btree', algorithm: 'btree', columns: [
+        'connectionState',
+      ] },
+    ],
+    constraints: [
+      { name: 'agv_connection_agv_id_key', constraint: 'unique', columns: ['agvId'] },
+    ],
+  }, AgvConnectionRow),
   agvState: __table({
     name: 'agv_state',
     indexes: [
@@ -76,9 +91,6 @@ const tablesSchema = __schema({
       ] },
       { accessor: 'alert', name: 'agv_state_alert_idx_btree', algorithm: 'btree', columns: [
         'alert',
-      ] },
-      { accessor: 'connectionState', name: 'agv_state_connection_state_idx_btree', algorithm: 'btree', columns: [
-        'connectionState',
       ] },
     ],
     constraints: [

@@ -11,6 +11,9 @@ use super::agv_error_type::AgvError;
 pub struct AgvStateFields {
     pub order_id: String,
     pub last_node_id: String,
+    pub driving: bool,
+    pub paused: bool,
+    pub charging: bool,
     pub error: Option<AgvError>,
 }
 

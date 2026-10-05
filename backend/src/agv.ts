@@ -3,10 +3,10 @@
 //
 // - `ingest` takes a batch of VDA 5050 messages (from `spacetime-ingest`) and
 //   does everything itself: registers maps and AGVs from a `state` with a
-//   position, and drops a `connection` of an unknown AGV.
+//   position, and stores a `connection` by AGV name, registered or not.
 // - `upsert_*` write one thing each. Maps and AGVs are registered first
-//   (`upsert_map`, `upsert_agv`); state and connection updates fail with
-//   "not found" for an AGV or map that is not.
+//   (`upsert_map`, `upsert_agv`); a state update fails with "not found" for
+//   an AGV or map that is not. A connection update needs only a valid name.
 //
 // State and connection take the message's VDA 5050 header timestamp
 // (`sentAt`) and ignore a message older than the one stored, since several
@@ -22,14 +22,6 @@ import {
 import spacetimedb, { AgvStateFields, ConnectionState } from "./schema";
 
 type Ctx = ReducerCtx<InferSchema<typeof spacetimedb>>;
-
-// State of an AGV whose connection message arrived before its first state.
-const BLANK_STATE = {
-  orderId: "",
-  lastNodeId: "",
-  error: undefined,
-};
-const OFFLINE = { tag: "Offline" } as const;
 
 // `manufacturer/serialNumber`. Undefined when a part is empty or the
 // manufacturer holds a `/`, which would let two AGVs share one id.
@@ -75,10 +67,8 @@ const writeState = (
   const row = {
     ...state,
     agvId,
-    connectionState: known?.connectionState ?? OFFLINE,
     updatedAt: ctx.timestamp,
     stateSentAt: sentAt,
-    connectionSentAt: known?.connectionSentAt,
     alert: state.error != null,
   };
 
@@ -95,29 +85,18 @@ const writeConnection = (
   connectionState: Infer<typeof ConnectionState>,
   sentAt: Timestamp,
 ) => {
-  const known = ctx.db.agvState.agvId.find(agvId);
-  if (isStale(known?.connectionSentAt, sentAt)) {
+  const known = ctx.db.agvConnection.agvId.find(agvId);
+  if (isStale(known?.sentAt, sentAt)) {
     console.warn(`dropped stale connection of ${agvId}`);
     return;
   }
 
+  const row = { agvId, connectionState, sentAt };
+
   if (known) {
-    ctx.db.agvState.agvId.update({
-      ...known,
-      connectionState,
-      updatedAt: ctx.timestamp,
-      connectionSentAt: sentAt,
-    });
+    ctx.db.agvConnection.agvId.update(row);
   } else {
-    ctx.db.agvState.insert({
-      ...BLANK_STATE,
-      agvId,
-      connectionState,
-      updatedAt: ctx.timestamp,
-      stateSentAt: undefined,
-      connectionSentAt: sentAt,
-      alert: false,
-    });
+    ctx.db.agvConnection.insert(row);
   }
 };
 
@@ -176,10 +155,8 @@ export const ingest = spacetimedb.reducer(
             `dropped state of ${agvId}: no position and not registered`,
           );
         }
-      } else if (ctx.db.agv.agvId.find(agvId)) {
-        writeConnection(ctx, agvId, body.value, sentAt);
       } else {
-        console.warn(`dropped connection of ${agvId}: not registered`);
+        writeConnection(ctx, agvId, body.value, sentAt);
       }
     }
   },
@@ -272,11 +249,13 @@ export const upsertAgvConnection = spacetimedb.reducer(
     sentAt: t.timestamp(),
   },
   (ctx, { manufacturer, serialNumber, connectionState, sentAt }) => {
-    writeConnection(
-      ctx,
-      registeredAgv(ctx, manufacturer, serialNumber),
-      connectionState,
-      sentAt,
-    );
+    const agvId = agvIdOf(manufacturer, serialNumber);
+    if (!agvId) {
+      throw new SenderError(
+        `invalid AGV name: '${manufacturer}' '${serialNumber}'`,
+      );
+    }
+
+    writeConnection(ctx, agvId, connectionState, sentAt);
   },
 );

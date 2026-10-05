@@ -35,6 +35,9 @@ fn main() -> Result<(), String> {
             let row = json!({
                 "order_id": state.order_id,
                 "last_node_id": state.last_node_id,
+                "driving": state.driving,
+                "paused": state.paused,
+                "charging": state.battery_state.charging,
                 // The latest error: the last one reported.
                 "error": match state.errors.last() {
                     Some(e) => json!({"some": {

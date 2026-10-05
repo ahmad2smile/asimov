@@ -50,6 +50,6 @@ Add shadcn components with `npx shadcn@latest add <name>` (config in `components
 `npm run infra:logs` follows logs, `npm run infra:down` stops (data kept),
 `docker compose down -v` deletes all data.
 
-- AGV data: SpacetimeDB `agv_state` (latest state and connection per AGV), TDengine `agv_state`, `agv_visualization`, `agv_connection` (history; see [tdengine-ingest](services/tdengine-ingest/README.md)).
+- AGV data: SpacetimeDB `agv_state` and `agv_connection` (latest state and connection per AGV), TDengine `agv_state`, `agv_visualization`, `agv_connection` (history; see [tdengine-ingest](services/tdengine-ingest/README.md)).
 - TDengine's native port 6030 needs `127.0.0.1 tdengine` in `/etc/hosts`.
 - Keep the SpacetimeDB image, CLI, `spacetimedb` npm package and `spacetimedb-sdk` crate on the same version.

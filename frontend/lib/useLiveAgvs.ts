@@ -7,7 +7,7 @@ const anyOf = <E extends { or(other: E): E }>(exprs: E[]) =>
   exprs.reduce((a, b) => a.or(b));
 
 /**
- * Subscribes to exactly these AGVs' `agv` and `agv_state` rows and
+ * Subscribes to exactly these AGVs' `agv`, `agv_state` and `agv_connection` rows and
  * returns them live, in `ids` order. While a new id set is being subscribed,
  * the previous result is kept so the UI doesn't flash empty.
  */
@@ -21,7 +21,7 @@ export function useLiveAgvs(ids: readonly string[]): {
 
   // The queries are built even while disabled, and an OR chain needs at least
   // one term, so a disabled hook uses a placeholder id that is never read.
-  const { agvQuery, stateQuery } = useMemo(() => {
+  const { agvQuery, stateQuery, connectionQuery } = useMemo(() => {
     const terms: string[] = JSON.parse(key);
     if (terms.length === 0) terms.push("");
     return {
@@ -31,11 +31,15 @@ export function useLiveAgvs(ids: readonly string[]): {
       stateQuery: tables.agvState.where((r) =>
         anyOf(terms.map((id) => r.agvId.eq(id))),
       ),
+      connectionQuery: tables.agvConnection.where((r) =>
+        anyOf(terms.map((id) => r.agvId.eq(id))),
+      ),
     };
   }, [key]);
 
   const [agvRows] = useTable(agvQuery, { enabled });
   const [states] = useTable(stateQuery, { enabled });
+  const [connections] = useTable(connectionQuery, { enabled });
   // One row per site, so the whole table is small.
   const [maps, mapsReady] = useTable(tables.map);
 
@@ -53,7 +57,7 @@ export function useLiveAgvs(ids: readonly string[]): {
     const subscription = connection
       .subscriptionBuilder()
       .onApplied(() => current && setAppliedKey(key))
-      .subscribe([agvQuery, stateQuery]);
+      .subscribe([agvQuery, stateQuery, connectionQuery]);
 
     return () => {
       current = false;
@@ -61,13 +65,14 @@ export function useLiveAgvs(ids: readonly string[]): {
       setAppliedKey(undefined);
       subscription.unsubscribe();
     };
-  }, [enabled, isActive, getConnection, key, agvQuery, stateQuery]);
+  }, [enabled, isActive, getConnection, key, agvQuery, stateQuery, connectionQuery]);
 
   const ready = mapsReady && (!enabled || appliedKey === key);
 
   const agvs = useMemo(() => {
     const agvById = new Map(agvRows.map((a) => [a.agvId, a]));
     const stateById = new Map(states.map((s) => [s.agvId, s]));
+    const connectionById = new Map(connections.map((c) => [c.agvId, c]));
     const mapById = new Map(maps.map((m) => [m.mapId, m]));
 
     return ids.flatMap((id) => {
@@ -75,9 +80,9 @@ export function useLiveAgvs(ids: readonly string[]): {
       const state = stateById.get(id);
       const map = agv && mapById.get(agv.mapId);
 
-      return agv && state && map ? [toAgv(agv, map, state)] : [];
+      return agv && state && map ? [toAgv(agv, map, state, connectionById.get(id))] : [];
     });
-  }, [ids, agvRows, states, maps]);
+  }, [ids, agvRows, states, connections, maps]);
 
   // Last result of a ready set, shown until the next set is ready.
   const [shown, setShown] = useState<Agv[]>([]);

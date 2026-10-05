@@ -59,35 +59,49 @@ export const agv = table(
 const stateFields = {
   orderId: t.string(),
   lastNodeId: t.string(),
+  // `driving`, `paused` and `batteryState.charging`
+  driving: t.bool(),
+  paused: t.bool(),
+  charging: t.bool(),
   // The latest error; unset when the AGV reports none.
   error: t.option(AgvError),
 };
 export const AgvStateFields = t.object("AgvStateFields", stateFields);
 
-// Latest VDA 5050 `state` and `connection` per AGV, in one row. The row is
-// created by whichever message arrives first, so until the other arrives its
-// fields hold defaults (`Offline` connection, blank state). The high-rate
-// `visualization` history goes to TDengine, not here.
+// Latest VDA 5050 `state` per AGV. Created by the first `state` of a registered
+// AGV. The high-rate `visualization` history goes to TDengine, not here.
 export const agvState = table(
   { name: "agv_state", public: true },
   {
     // `agv.agvId`
     agvId: t.string().primaryKey(),
     ...stateFields,
-    // Indexed so `fleet_stats` can count online AGVs.
-    connectionState: ConnectionState.index("btree"),
-    // Last write of either message. Set by the reducer.
+    // Last write. Set by the reducer.
     updatedAt: t.timestamp(),
     // `error` is set; indexed so `fleet_stats` can count alerts.
     alert: t.bool().index("btree"),
-    // VDA 5050 header timestamps of the stored `state` and `connection`
-    // messages; unset until one arrives. Older messages are ignored, since
-    // several ingest instances can deliver one AGV's messages out of order.
-    // Last, with defaults, so existing databases migrate without data loss.
-    stateSentAt: t.option(t.timestamp()).default(undefined),
-    connectionSentAt: t.option(t.timestamp()).default(undefined),
+    // VDA 5050 header timestamp of the stored message. Older messages are
+    // ignored, since several ingest instances can deliver one AGV's messages
+    // out of order.
+    stateSentAt: t.timestamp(),
   },
 );
 
-const spacetimedb = schema({ map, agv, agvState });
+// Latest VDA 5050 `connection` per AGV. Lives apart from `agv` and `agv_state`:
+// a `connection` carries only the AGV name, so it is stored even before the
+// AGV is registered by its first `state`. A missing row means no connection
+// message yet (shown as offline).
+export const agvConnection = table(
+  { name: "agv_connection", public: true },
+  {
+    // "<manufacturer>/<serialNumber>", same as `agv.agvId`
+    agvId: t.string().primaryKey(),
+    // Indexed so `fleet_stats` can count online AGVs.
+    connectionState: ConnectionState.index("btree"),
+    // VDA 5050 header timestamp; older messages are ignored (see `agv_state`).
+    sentAt: t.timestamp(),
+  },
+);
+
+const spacetimedb = schema({ map, agv, agvState, agvConnection });
 export default spacetimedb;

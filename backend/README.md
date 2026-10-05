@@ -15,7 +15,8 @@ All tables are public. Keys are the VDA 5050 identifiers. `agvId` is `<manufactu
 ```mermaid
 erDiagram
     map ||--o{ agv : "has"
-    agv ||--o| agv_state : "latest state and connection"
+    agv ||--o| agv_state : "latest state"
+    agv ||--o| agv_connection : "latest connection, by agvId only"
 
     map {
         string mapId PK "VDA 5050 mapId"
@@ -31,9 +32,17 @@ erDiagram
         string agvId PK, FK
         string orderId
         string lastNodeId
+        bool driving "with paused and charging, drives the activity"
+        bool paused
+        bool charging
         AgvError error "latest error, optional"
-        ConnectionState connectionState "btree index, Offline until reported"
         timestamp updatedAt
         bool alert "btree index, error is set"
+        timestamp stateSentAt
+    }
+    agv_connection {
+        string agvId PK "no FK: stored before the AGV is registered"
+        ConnectionState connectionState "btree index"
+        timestamp sentAt
     }
 ```

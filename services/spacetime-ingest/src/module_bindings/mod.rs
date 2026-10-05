@@ -6,6 +6,8 @@
 #![allow(unused, clippy::all)]
 use spacetimedb_sdk::__codegen::{self as __sdk, __lib, __sats, __ws};
 
+pub mod agv_connection_table;
+pub mod agv_connection_type;
 pub mod agv_error_type;
 pub mod agv_page_procedure;
 pub mod agv_page_type;
@@ -38,6 +40,8 @@ pub mod upsert_agv_type;
 pub mod upsert_map_reducer;
 pub mod upsert_map_type;
 
+pub use agv_connection_table::*;
+pub use agv_connection_type::AgvConnection;
 pub use agv_error_type::AgvError;
 pub use agv_page_procedure::agv_page;
 pub use agv_page_type::AgvPage;
@@ -172,6 +176,7 @@ impl __sdk::Reducer for Reducer {
 #[doc(hidden)]
 pub struct DbUpdate {
     agv: __sdk::TableUpdate<Agv>,
+    agv_connection: __sdk::TableUpdate<AgvConnection>,
     agv_state: __sdk::TableUpdate<AgvState>,
     fleet_stats: __sdk::TableUpdate<FleetStatsRow>,
     map: __sdk::TableUpdate<Map>,
@@ -186,6 +191,9 @@ impl TryFrom<__ws::v2::TransactionUpdate> for DbUpdate {
                 "agv" => db_update
                     .agv
                     .append(agv_table::parse_table_update(table_update)?),
+                "agv_connection" => db_update
+                    .agv_connection
+                    .append(agv_connection_table::parse_table_update(table_update)?),
                 "agv_state" => db_update
                     .agv_state
                     .append(agv_state_table::parse_table_update(table_update)?),
@@ -224,6 +232,9 @@ impl __sdk::DbUpdate for DbUpdate {
         diff.agv = cache
             .apply_diff_to_table::<Agv>("agv", &self.agv)
             .with_updates_by_pk(|row| &row.agv_id);
+        diff.agv_connection = cache
+            .apply_diff_to_table::<AgvConnection>("agv_connection", &self.agv_connection)
+            .with_updates_by_pk(|row| &row.agv_id);
         diff.agv_state = cache
             .apply_diff_to_table::<AgvState>("agv_state", &self.agv_state)
             .with_updates_by_pk(|row| &row.agv_id);
@@ -241,6 +252,9 @@ impl __sdk::DbUpdate for DbUpdate {
             match &table_rows.table[..] {
                 "agv" => db_update
                     .agv
+                    .append(__sdk::parse_row_list_as_inserts(table_rows.rows)?),
+                "agv_connection" => db_update
+                    .agv_connection
                     .append(__sdk::parse_row_list_as_inserts(table_rows.rows)?),
                 "agv_state" => db_update
                     .agv_state
@@ -267,6 +281,9 @@ impl __sdk::DbUpdate for DbUpdate {
                 "agv" => db_update
                     .agv
                     .append(__sdk::parse_row_list_as_deletes(table_rows.rows)?),
+                "agv_connection" => db_update
+                    .agv_connection
+                    .append(__sdk::parse_row_list_as_deletes(table_rows.rows)?),
                 "agv_state" => db_update
                     .agv_state
                     .append(__sdk::parse_row_list_as_deletes(table_rows.rows)?),
@@ -292,6 +309,7 @@ impl __sdk::DbUpdate for DbUpdate {
 #[doc(hidden)]
 pub struct AppliedDiff<'r> {
     agv: __sdk::TableAppliedDiff<'r, Agv>,
+    agv_connection: __sdk::TableAppliedDiff<'r, AgvConnection>,
     agv_state: __sdk::TableAppliedDiff<'r, AgvState>,
     fleet_stats: __sdk::TableAppliedDiff<'r, FleetStatsRow>,
     map: __sdk::TableAppliedDiff<'r, Map>,
@@ -309,6 +327,11 @@ impl<'r> __sdk::AppliedDiff<'r> for AppliedDiff<'r> {
         callbacks: &mut __sdk::DbCallbacks<RemoteModule>,
     ) {
         callbacks.invoke_table_row_callbacks::<Agv>("agv", &self.agv, event);
+        callbacks.invoke_table_row_callbacks::<AgvConnection>(
+            "agv_connection",
+            &self.agv_connection,
+            event,
+        );
         callbacks.invoke_table_row_callbacks::<AgvState>("agv_state", &self.agv_state, event);
         callbacks.invoke_table_row_callbacks::<FleetStatsRow>(
             "fleet_stats",
@@ -977,9 +1000,11 @@ impl __sdk::SpacetimeModule for RemoteModule {
 
     fn register_tables(client_cache: &mut __sdk::ClientCache<Self>) {
         agv_table::register_table(client_cache);
+        agv_connection_table::register_table(client_cache);
         agv_state_table::register_table(client_cache);
         fleet_stats_table::register_table(client_cache);
         map_table::register_table(client_cache);
     }
-    const ALL_TABLE_NAMES: &'static [&'static str] = &["agv", "agv_state", "fleet_stats", "map"];
+    const ALL_TABLE_NAMES: &'static [&'static str] =
+        &["agv", "agv_connection", "agv_state", "fleet_stats", "map"];
 }

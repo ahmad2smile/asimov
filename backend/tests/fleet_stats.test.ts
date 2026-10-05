@@ -44,10 +44,14 @@ let clock = 1_700_000_000_000_000;
 const sentAt = (at = (clock += 1_000_000)) => ({ __timestamp_micros_since_unix_epoch__: at });
 
 // `error` is the latest error, or none.
-const state = (agvName: string, error: unknown = NO_ERROR, at?: number, orderId = '') =>
+const state = (agvName: string, error: unknown = NO_ERROR, at?: number, orderId = '', flags = {}) =>
   call('upsert_agv_state', ...split(agvName), {
     order_id: orderId,
     last_node_id: '',
+    driving: false,
+    paused: false,
+    charging: false,
+    ...flags,
     error,
   }, sentAt(at));
 
@@ -60,14 +64,20 @@ const stateColumn = (agvName: string, column: string) =>
     .split('\n')[2]
     ?.trim();
 
-// Runs `fn` and reports whether it failed with a "not found" error.
-const expectNotFound = (label: string, fn: () => unknown) => {
+// Connection state of an AGV's `agv_connection` row, as the SQL output prints it.
+const connectionOf = (agvName: string) =>
+  spacetime('sql', DB, ...BASE, `SELECT connection_state FROM agv_connection WHERE agv_id = '${agvName}'`)
+    .split('\n')[2]
+    ?.trim();
+
+// Runs `fn` and reports whether it failed with an error matching `pattern`.
+const expectNotFound = (label: string, fn: () => unknown, pattern = /not found/) => {
   try {
     fn();
     report(false, label, 'expected an error, the call succeeded');
   } catch (e) {
     const out = String((e as { stderr?: unknown }).stderr ?? e);
-    report(/not found/.test(out), label, `expected 'not found', got '${out}'`);
+    report(pattern.test(out), label, `expected ${pattern}, got '${out}'`);
   }
 };
 
@@ -110,14 +120,22 @@ try {
   expectStats('empty database', '0 0 0 0');
 
   expectNotFound('state needs a registered AGV', () => state('a/1'));
-  expectNotFound('connection needs a registered AGV', () => connection('a/1', 'online'));
+  expectNotFound(
+    'connection needs a valid AGV name',
+    () => call('upsert_agv_connection', 'a/b', '1', { online: [] }, sentAt()),
+    /invalid AGV name/,
+  );
   expectNotFound('AGV needs a registered map', () => call('upsert_agv', 'a', '1', 'm1'));
   expectStats('failed calls change nothing', '0 0 0 0');
 
+  // A connection carries only the AGV name, so it is stored before the AGV is registered.
+  connection('a/1', 'online');
+  expectEqual('connection of an unregistered AGV is stored', connectionOf('a/1'), '(online = ())');
+  expectStats('an unregistered AGV is not counted', '0 0 0 0');
+
   register('a/1', 'm1');
   state('a/1');
-  connection('a/1', 'online');
-  expectStats('one online AGV', '1 1 1 0');
+  expectStats('one online AGV, connection stored before registration', '1 1 1 0');
 
   register('b/2', 'm2');
   connection('b/2', 'online');
@@ -162,6 +180,17 @@ try {
   check('search matches the order', page('ord-9', { none: [] }, 5), '[["b/2"],');
   check('search matches the activity', page('Offline', { none: [] }, 5), '[["a/1"],');
   check('search matches the site', page('Main Hall', { none: [] }, 5), '[["a/1","b/2"],');
+  state('a/1', NO_ERROR, undefined, '', { driving: true });
+  connection('a/1', 'online');
+  check('search matches Driving', page('Driving', { none: [] }, 5), '[["a/1"],');
+  state('a/1', NO_ERROR, undefined, '', { driving: true, paused: true });
+  check('paused wins over driving', page('Paused', { none: [] }, 5), '[["a/1"],');
+  state('a/1', NO_ERROR, undefined, '', { driving: true, paused: true, charging: true });
+  check('charging wins over paused', page('Charging', { none: [] }, 5), '[["a/1"],');
+  state('a/1', { some: { error_type: 'x', error_level: { fatal: [] } } }, undefined, '', { charging: true });
+  check('a fatal error wins over charging', page('Error', { none: [] }, 5), '[["a/1"],');
+  state('a/1');
+  connection('a/1', 'connectionbroken');
   check('search is case-sensitive', page('offline', { none: [] }, 5), '[[],');
   check('page after the cursor', page('', { some: 'a/1' }, 5), '[["b/2"],');
   check('page after the last match is empty', page('a/', { some: 'b/2' }, 5), '[[],');
@@ -188,7 +217,7 @@ try {
     manufacturer, serial_number, sent_at: sentAt(at),
     body: { state: {
       map_id: mapId == null ? { none: [] } : { some: mapId },
-      state: { order_id: orderId, last_node_id: '', error: NO_ERROR },
+      state: { order_id: orderId, last_node_id: '', driving: false, paused: false, charging: false, error: NO_ERROR },
     } },
   });
   const ingestConnection = (connectionState: string, at: number) => ({
@@ -200,9 +229,10 @@ try {
 
   const t1 = clock + 100_000_000;
   ingest(ingestConnection('online', t1), ingestState(null, t1 + 1, 'no-position'));
-  expectStats('a message of an AGV without a known map is dropped', '2 4 2 1');
+  expectStats('a state without a position is dropped, an unregistered AGV is not counted', '2 4 2 1');
+  expectEqual('its connection is stored', connectionOf('e/5'), '(online = ())');
   ingest(ingestState('m3', t1 + 2, 'first'));
-  expectStats('a state with a position registers the map and the AGV, offline', '3 5 2 1');
+  expectStats('a state with a position registers the map and the AGV, already online', '3 5 3 1');
   expectEqual('AGV on its map', agvMap(), '"m3"');
   ingest(ingestState('m1', t1 + 1, 'older'));
   expectEqual('an older state does not move the AGV', agvMap(), '"m3"');

@@ -35,6 +35,9 @@ fn state_fields(state: &vda::State) -> AgvStateFields {
     AgvStateFields {
         order_id: state.order_id.clone(),
         last_node_id: state.last_node_id.clone(),
+        driving: state.driving,
+        paused: state.paused.unwrap_or(false),
+        charging: state.battery_state.charging,
         error: state.errors.last().map(|error| AgvError {
             error_type: error.error_type.clone(),
             error_level: match error.error_level {

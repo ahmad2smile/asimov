@@ -10,21 +10,14 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 import {
-  AgvError,
+  ConnectionState,
 } from "./types";
 
 
 export default __t.row({
   agvId: __t.string().primaryKey().name("agv_id"),
-  orderId: __t.string().name("order_id"),
-  lastNodeId: __t.string().name("last_node_id"),
-  driving: __t.bool(),
-  paused: __t.bool(),
-  charging: __t.bool(),
-  get error() {
-    return __t.option(AgvError);
+  get connectionState() {
+    return ConnectionState.name("connection_state");
   },
-  updatedAt: __t.timestamp().name("updated_at"),
-  alert: __t.bool(),
-  stateSentAt: __t.timestamp().name("state_sent_at"),
+  sentAt: __t.timestamp().name("sent_at"),
 });

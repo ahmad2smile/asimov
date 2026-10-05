@@ -38,6 +38,9 @@ export const upsertState = (
   call("upsert_agv_state", manufacturer, serialNumber, {
     order_id: orderId,
     last_node_id: "",
+    driving: false,
+    paused: false,
+    charging: false,
     error: errorType
       ? { some: { error_type: errorType, error_level: { warning: [] } } }
       : { none: [] },

@@ -49,7 +49,7 @@ fn stores_only_the_configured_sites() {
     eventually("every AGV of the sites registered and online", DATA, || {
         let registered: BTreeSet<String> = st.sql("SELECT agv_id FROM agv")?.into_iter().map(|r| r[0].clone()).collect();
         let online = st
-            .sql("SELECT agv_id, connection_state FROM agv_state")?
+            .sql("SELECT agv_id, connection_state FROM agv_connection")?
             .into_iter()
             .filter(|r| r.get(1).is_some_and(|c| c.contains("online")))
             .count();
@@ -89,9 +89,9 @@ fn replicas_share_the_work_without_duplicates() {
     // SpacetimeDB: every AGV current, and both instances did part of it.
     let expected = agvs(&sites);
     eventually("every AGV online with a state", DATA, || {
-        let rows = st.sql("SELECT agv_id, connection_state, state_sent_at FROM agv_state")?;
-        let complete = rows.iter().filter(|r| r[1].contains("online") && r[2].contains("some")).count();
-        Ok((complete == expected.len()).then_some(()))
+        let online = st.sql("SELECT agv_id FROM agv_connection WHERE connection_state = 'Online'")?.len();
+        let states = st.sql("SELECT agv_id FROM agv_state")?.len();
+        Ok((online == expected.len() && states == expected.len()).then_some(()))
     });
     for service in &spacetime {
         assert!(service.log_sum("batch written", "written", |_| true) > 0, "{} wrote nothing", service.name);

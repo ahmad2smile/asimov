@@ -1,7 +1,7 @@
 // Dashboard read side.
 //
 // - `agv_page` finds which AGVs are on a page; clients then subscribe to
-//   exactly those `agv_state` rows for live updates. Without a search it reads
+//   exactly those `agv_state` and `agv_connection` rows for live updates. Without a search it reads
 //   one page of AGVs; with one it may walk the rest of the map.
 // - `fleet_stats` is a live fleet-wide count of maps, AGVs, online AGVs, and
 //   alerts, read from table counts and indexes.
@@ -39,7 +39,9 @@ export const agvPage = spacetimedb.procedure(
     const term = search.trim();
     const size = Math.min(Math.max(limit, 1), MAX_PAGE_SIZE);
     const from: Bound<string> =
-      afterAgvId != null ? { tag: "excluded", value: afterAgvId } : { tag: "unbounded" };
+      afterAgvId != null
+        ? { tag: "excluded", value: afterAgvId }
+        : { tag: "unbounded" };
 
     return ctx.withTx((tx) => {
       const agvIds: string[] = [];
@@ -47,13 +49,16 @@ export const agvPage = spacetimedb.procedure(
       const siteName = tx.db.map.mapId.find(mapId)?.name ?? "";
 
       // Each field as the dashboard shows it. An AGV without a state row has
-      // no order or activity yet.
+      // no order yet; without a connection row it is offline.
       const matches = (agvId: string) => {
         if (agvId.includes(term) || siteName.includes(term)) return true;
         const state = tx.db.agvState.agvId.find(agvId);
+        const connection = tx.db.agvConnection.agvId.find(agvId);
         return (
-          state != null &&
-          (state.orderId.includes(term) || activityOf(state).includes(term))
+          (state?.orderId.includes(term) ?? false) ||
+          activityOf(connection?.connectionState.tag, state ?? undefined).includes(
+            term,
+          )
         );
       };
 
@@ -91,7 +96,12 @@ export const fleetStats = spacetimedb.anonymousView(
     sites: ctx.db.map.count(),
     agvs: ctx.db.agv.count(),
     // NOTE: Not great but its in Memory scan of Index on highly optimized spacetimedb collection
-    online: count(ctx.db.agvState.connectionState.filter({ tag: "Online" })),
+    // A connection can be stored before its AGV is registered; count only registered ones.
+    online: count(
+      [...ctx.db.agvConnection.connectionState.filter({ tag: "Online" })].filter(
+        (c) => ctx.db.agv.agvId.find(c.agvId) != null,
+      ),
+    ),
     alerts: count(ctx.db.agvState.alert.filter(true)),
   }),
 );

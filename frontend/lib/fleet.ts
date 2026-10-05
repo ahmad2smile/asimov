@@ -1,11 +1,11 @@
-// Joins an agv row with its agv_state row and derives what the
+// Joins an agv row with its agv_state and agv_connection rows and derives what the
 // dashboard shows (site, activity, alerts).
-import type { Agv as AgvRow, AgvState, Map as MapRow } from '@/module_bindings/types';
+import type { Agv as AgvRow, AgvConnection, AgvState, Map as MapRow } from '@/module_bindings/types';
 import { activityOf, type Activity } from '../../backend/src/display';
 
 export { type Activity };
 
-export type ConnectionTag = AgvState['connectionState']['tag'];
+export type ConnectionTag = AgvConnection['connectionState']['tag'];
 
 export interface Agv {
   id: string;
@@ -23,8 +23,9 @@ export function toAgv(
   agv: AgvRow,
   map: MapRow,
   state: AgvState,
+  connectionRow: AgvConnection | undefined,
 ): Agv {
-  const connection = state.connectionState.tag;
+  const connection = connectionRow?.connectionState.tag ?? 'Offline';
   return {
     id: agv.agvId,
     manufacturer: agv.manufacturer,
@@ -32,7 +33,7 @@ export function toAgv(
     siteName: map.name,
     state,
     connection,
-    activity: activityOf(state),
+    activity: activityOf(connection, state),
   };
 }
 

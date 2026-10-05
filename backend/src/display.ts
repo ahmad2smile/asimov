@@ -4,13 +4,25 @@
 //
 // A site is shown as its `map.name`, as stored.
 
-export type Activity = 'Offline' | 'Error' | 'Idle';
+export type Activity = 'Offline' | 'Error' | 'Charging' | 'Driving' | 'Paused' | 'Idle';
 
-export function activityOf(state: {
-  connectionState: { tag: string };
-  error?: { errorLevel: { tag: string } };
-}): Activity {
-  if (state.connectionState.tag !== 'Online') return 'Offline';
-  if (state.error?.errorLevel.tag === 'Fatal') return 'Error';
+// `connection` is the stored connection tag; unset until the AGV has sent one.
+// The first match wins, so a fatal error shows even while the AGV drives.
+export function activityOf(
+  connection: string | undefined,
+  state:
+    | {
+        driving: boolean;
+        paused: boolean;
+        charging: boolean;
+        error?: { errorLevel: { tag: string } };
+      }
+    | undefined,
+): Activity {
+  if (connection !== 'Online') return 'Offline';
+  if (state?.error?.errorLevel.tag === 'Fatal') return 'Error';
+  if (state?.charging) return 'Charging';
+  if (state?.paused) return 'Paused';
+  if (state?.driving) return 'Driving';
   return 'Idle';
 }

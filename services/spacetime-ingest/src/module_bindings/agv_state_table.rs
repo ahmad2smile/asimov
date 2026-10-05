@@ -4,7 +4,6 @@
 #![allow(unused, clippy::all)]
 use super::agv_error_type::AgvError;
 use super::agv_state_type::AgvState;
-use super::connection_state_type::ConnectionState;
 use spacetimedb_sdk::__codegen::{self as __sdk, __lib, __sats, __ws};
 
 /// Table handle for the table `agv_state`.
