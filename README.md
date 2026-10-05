@@ -1,16 +1,6 @@
 # asimov
 
-SpacetimeDB app (TypeScript backend, React frontend) with local TDengine, Mosquitto,
-simulated VDA 5050 robots, and MQTT ingest services.
-
-| Path | What |
-| --- | --- |
-| `backend/` | SpacetimeDB module in TypeScript - see [backend/README.md](backend/README.md) |
-| `frontend/` | React + Vite fleet dashboard (TypeScript, Tailwind, [shadcn/ui](https://ui.shadcn.com) in `frontend/components/ui`) |
-| `services/` | Rust: AGV simulator and MQTT ingest services - see [services/README.md](services/README.md) |
-| `docs/adr/` | Architecture decisions |
-| `compose.yaml` | Local services |
-| `config/` | Tool and service configs |
+Live fleet dashboard for simulated VDA 5050 warehouse robots (AGVs).
 
 Needs Node.js 22.18+, Rust, Docker, and the [SpacetimeDB CLI](https://spacetimedb.com/install) 2.10.x.
 
@@ -18,38 +8,34 @@ Needs Node.js 22.18+, Rust, Docker, and the [SpacetimeDB CLI](https://spacetimed
 
 ```bash
 npm install
-npm run infra:up            # build and start services (publishes the module as `asimov` first)
-npm run dev                 # http://localhost:5173
+npm run infra:up    # build and start all services
+npm run dev         # dashboard at http://localhost:5173
 ```
 
-After changing the module: `npm run spacetime:publish` (runs in a container, which owns the database), then `npm run spacetime:generate`
-and `npm run spacetime:generate:rust`. For an incompatible schema change, add
-`--delete-data=on-conflict` (clears data).
-
-| Test | Command (needs `infra:up`) |
-| --- | --- |
-| Module | `npm run spacetime:test` |
-| Dashboard E2E (Playwright) | `npm run e2e` (once: `PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install chromium`); screenshots in `test-results/screenshots/` |
-| Rust unit / simulator | `npm run services:test` / `npm run simulator:test` |
-| Ingest E2E | `npm run services:e2e` (restarts containers) |
-
-Seed one simulated fleet snapshot: `scripts/seed-spacetime.sh [database]`.
-Add shadcn components with `npx shadcn@latest add <name>` (config in `components.json`).
+`npm run infra:down` stops everything (data kept).
 
 ## Services
 
-| Service | Address |
-| --- | --- |
-| SpacetimeDB | `http://127.0.0.1:3000` |
-| TDengine REST / Explorer | `http://127.0.0.1:6041` / `:6060` (`root` / `taosdata`) |
-| Mosquitto | `mqtt://127.0.0.1:1883`, `ws://127.0.0.1:9001` |
-| AGV simulator | publishes to `<site>/uagv/v2/#` on Mosquitto |
-| spacetime-ingest / tdengine-ingest | MQTT -> SpacetimeDB `asimov` / TDengine `asimov` |
-| Grafana (dashboard "MQTT ingest") / Prometheus | `http://127.0.0.1:3001` / `:9090` |
+| Service              | What it does                                                                                             |
+| -------------------- | -------------------------------------------------------------------------------------------------------- |
+| `frontend`           | React dashboard that shows the fleet live                                                                |
+| `backend`            | SpacetimeDB module that stores the latest state and connection of each AGV ([README](backend/README.md)) |
+| SpacetimeDB          | Database and server for the module (`http://127.0.0.1:3000`)                                             |
+| AGV simulator        | Robots that publish VDA 5050 messages over MQTT                                                          |
+| Mosquitto            | MQTT broker between the simulator and the ingest services                                                |
+| spacetime-ingest     | Writes the latest robot data from MQTT into SpacetimeDB                                                  |
+| tdengine-ingest      | Writes robot history from MQTT into TDengine                                                             |
+| TDengine             | Time series database for robot history (`http://127.0.0.1:6041`)                                         |
+| Prometheus / Grafana | Ingest metrics and dashboard (`http://127.0.0.1:9090` / `:3001`)                                         |
 
-`npm run infra:logs` follows logs, `npm run infra:down` stops (data kept),
-`docker compose down -v` deletes all data.
+Supporting Services are described in [services/README.md](services/README.md).
 
-- AGV data: SpacetimeDB `agv_state` and `agv_connection` (latest state and connection per AGV), TDengine `agv_state`, `agv_visualization`, `agv_connection` (history; see [tdengine-ingest](services/tdengine-ingest/README.md)).
-- TDengine's native port 6030 needs `127.0.0.1 tdengine` in `/etc/hosts`.
-- Keep the SpacetimeDB image, CLI, `spacetimedb` npm package and `spacetimedb-sdk` crate on the same version.
+# NOTE
+
+## Done
+
+Project only shows basic Backend + Ingestion focusing on ingestion throughput and realtime backend capability for frontend presentation.
+
+## Planned
+
+Ingest visualization from TimeSeries for graph/simulation.
