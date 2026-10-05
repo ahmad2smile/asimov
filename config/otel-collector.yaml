@@ -1,0 +1,25 @@
+# OTLP metrics from the ingest services, exposed for Prometheus to scrape.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+  batch: {}
+
+exporters:
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    # Drop series of stopped instances soon (services export every 10 s).
+    metric_expiration: 1m
+    # service.name and service.instance.id become `job` and `instance`.
+    resource_to_telemetry_conversion:
+      enabled: true
+
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus]

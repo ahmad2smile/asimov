@@ -6,11 +6,13 @@
 import { type Infer as __Infer } from "spacetimedb";
 
 // Import all reducer arg schemas
+import IngestReducer from "../ingest_reducer";
 import UpsertAgvReducer from "../upsert_agv_reducer";
 import UpsertAgvConnectionReducer from "../upsert_agv_connection_reducer";
 import UpsertAgvStateReducer from "../upsert_agv_state_reducer";
 import UpsertMapReducer from "../upsert_map_reducer";
 
+export type IngestParams = __Infer<typeof IngestReducer>;
 export type UpsertAgvParams = __Infer<typeof UpsertAgvReducer>;
 export type UpsertAgvConnectionParams = __Infer<typeof UpsertAgvConnectionReducer>;
 export type UpsertAgvStateParams = __Infer<typeof UpsertAgvStateReducer>;

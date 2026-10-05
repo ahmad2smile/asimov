@@ -27,4 +27,6 @@ export default __t.row({
   },
   updatedAt: __t.timestamp().name("updated_at"),
   alert: __t.bool(),
+  stateSentAt: __t.option(__t.timestamp()).name("state_sent_at"),
+  connectionSentAt: __t.option(__t.timestamp()).name("connection_sent_at"),
 });

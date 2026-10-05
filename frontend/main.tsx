@@ -24,6 +24,13 @@ const onDisconnect = () => {
 
 const onConnectError = (_ctx: ErrorContext, err: Error) => {
   console.log('Error connecting to SpacetimeDB:', err);
+
+  // A stored token the server rejects (e.g. after a database reset) never works
+  // again: drop it and reconnect with a new one. No token left, no reload loop.
+  if (localStorage.getItem(TOKEN_KEY)) {
+    localStorage.removeItem(TOKEN_KEY);
+    location.reload();
+  }
 };
 
 const connectionBuilder = DbConnection.builder()

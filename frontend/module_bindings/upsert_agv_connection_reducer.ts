@@ -20,4 +20,5 @@ export default {
   get connectionState() {
     return ConnectionState;
   },
+  sentAt: __t.timestamp(),
 };

@@ -38,16 +38,27 @@ const mapName = (mapId: string) =>
     .split('\n')[2]
     ?.trim();
 
+// VDA 5050 header timestamp as SpacetimeDB JSON. Each call gets a later one
+// unless `at` is given.
+let clock = 1_700_000_000_000_000;
+const sentAt = (at = (clock += 1_000_000)) => ({ __timestamp_micros_since_unix_epoch__: at });
+
 // `error` is the latest error, or none.
-const state = (agvName: string, error: unknown = NO_ERROR) =>
+const state = (agvName: string, error: unknown = NO_ERROR, at?: number, orderId = '') =>
   call('upsert_agv_state', ...split(agvName), {
-    order_id: '',
+    order_id: orderId,
     last_node_id: '',
     error,
-  });
+  }, sentAt(at));
 
-const connection = (agvName: string, connectionState: string) =>
-  call('upsert_agv_connection', ...split(agvName), { [connectionState]: [] });
+const connection = (agvName: string, connectionState: string, at?: number) =>
+  call('upsert_agv_connection', ...split(agvName), { [connectionState]: [] }, sentAt(at));
+
+// One column of an AGV's `agv_state` row, as the SQL output prints it.
+const stateColumn = (agvName: string, column: string) =>
+  spacetime('sql', DB, ...BASE, `SELECT ${column} FROM agv_state WHERE agv_id = '${agvName}'`)
+    .split('\n')[2]
+    ?.trim();
 
 // Runs `fn` and reports whether it failed with a "not found" error.
 const expectNotFound = (label: string, fn: () => unknown) => {
@@ -64,7 +75,6 @@ const NO_ERROR = { none: [] };
 const ERROR = {
   some: { error_type: 'obstacleDetected', error_level: { warning: [] } },
 };
-const ERROR_STATE = { order_id: '', last_node_id: '', error: ERROR };
 let failures = 0;
 
 const report = (ok: boolean, label: string, detail: string) => {
@@ -145,16 +155,66 @@ try {
   check('page 1 has a cursor', page('', { none: [] }, 1), '[0,"a/1"]');
   check('last page has no cursor', page('', { some: 'a/1' }, 1), '[1,[]]');
   // m1 now holds a/1 (connection broken, so "Offline") and b/2 (online with
-  // a warning, so "Idle", on order "ord-9"). Its site name is "M1".
-  call('upsert_agv_state', 'b', '2', { ...ERROR_STATE, order_id: 'ord-9' });
+  // a warning, so "Idle", on order "ord-9"). Its site name is "Main Hall".
+  state('b/2', ERROR, undefined, 'ord-9');
   check('search matches the AGV id', page('b/', { none: [] }, 5), '[["b/2"],');
   check('search matches part of the AGV id', page('/1', { none: [] }, 5), '[["a/1"],');
   check('search matches the order', page('ord-9', { none: [] }, 5), '[["b/2"],');
   check('search matches the activity', page('Offline', { none: [] }, 5), '[["a/1"],');
-  check('search matches the site', page('M1', { none: [] }, 5), '[["a/1","b/2"],');
+  check('search matches the site', page('Main Hall', { none: [] }, 5), '[["a/1","b/2"],');
   check('search is case-sensitive', page('offline', { none: [] }, 5), '[[],');
   check('page after the cursor', page('', { some: 'a/1' }, 5), '[["b/2"],');
   check('page after the last match is empty', page('a/', { some: 'b/2' }, 5), '[[],');
+
+  // Messages of one AGV can arrive out of order (several ingest instances).
+  register('d/4', 'm2');
+  const t0 = clock;
+  state('d/4', NO_ERROR, t0 + 10_000_000, 'new-order');
+  state('d/4', NO_ERROR, t0 + 5_000_000, 'old-order');
+  expectEqual('older state is ignored', stateColumn('d/4', 'order_id'), '"new-order"');
+  state('d/4', NO_ERROR, t0 + 10_000_000, 'same-time');
+  expectEqual('state with the same time is written', stateColumn('d/4', 'order_id'), '"same-time"');
+  connection('d/4', 'online', t0 + 10_000_000);
+  connection('d/4', 'connectionbroken', t0 + 5_000_000);
+  expectStats('older connection is ignored', '2 4 2 1');
+  connection('d/4', 'offline', t0 + 2_000_000);
+  state('d/4', NO_ERROR, t0 + 20_000_000, 'newer-order');
+  expectEqual('state and connection times are separate', stateColumn('d/4', 'order_id'), '"newer-order"');
+  expectStats('connection still online', '2 4 2 1');
+
+  // `ingest`: batches as `spacetime-ingest` sends them.
+  const [manufacturer, serial_number] = split('e/5');
+  const ingestState = (mapId: string | null, at: number, orderId: string) => ({
+    manufacturer, serial_number, sent_at: sentAt(at),
+    body: { state: {
+      map_id: mapId == null ? { none: [] } : { some: mapId },
+      state: { order_id: orderId, last_node_id: '', error: NO_ERROR },
+    } },
+  });
+  const ingestConnection = (connectionState: string, at: number) => ({
+    manufacturer, serial_number, sent_at: sentAt(at), body: { connection: { [connectionState]: [] } },
+  });
+  const ingest = (...messages: unknown[]) => call('ingest', messages);
+  const agvMap = () =>
+    spacetime('sql', DB, ...BASE, "SELECT map_id FROM agv WHERE agv_id = 'e/5'").split('\n')[2]?.trim();
+
+  const t1 = clock + 100_000_000;
+  ingest(ingestConnection('online', t1), ingestState(null, t1 + 1, 'no-position'));
+  expectStats('a message of an AGV without a known map is dropped', '2 4 2 1');
+  ingest(ingestState('m3', t1 + 2, 'first'));
+  expectStats('a state with a position registers the map and the AGV, offline', '3 5 2 1');
+  expectEqual('AGV on its map', agvMap(), '"m3"');
+  ingest(ingestState('m1', t1 + 1, 'older'));
+  expectEqual('an older state does not move the AGV', agvMap(), '"m3"');
+  expectEqual('an older state is ignored', stateColumn('e/5', 'order_id'), '"first"');
+  ingest(ingestState('m1', t1 + 3, 'moved'), ingestConnection('offline', t1 + 3));
+  expectEqual('a newer state moves the AGV', agvMap(), '"m1"');
+  expectStats('one batch writes state and connection', '3 5 2 1');
+
+  const invalid = { ...ingestState('m9', t1 + 4, 'invalid'), manufacturer: 'x/y' };
+  ingest(invalid, ingestState('m1', t1 + 4, 'after-invalid'));
+  expectStats('an invalid AGV name registers nothing', '3 5 2 1');
+  expectEqual('an invalid message does not block the batch', stateColumn('e/5', 'order_id'), '"after-invalid"');
 } finally {
   spacetime('delete', DB, ...BASE, '--yes');
 }

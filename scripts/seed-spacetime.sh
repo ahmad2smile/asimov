@@ -7,7 +7,7 @@ set -euo pipefail
 DB="${1:-asimov}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-cargo run --quiet --release --manifest-path "$ROOT/simulator/Cargo.toml" --bin seed |
+cargo run --quiet --release --manifest-path "$ROOT/services/Cargo.toml" --bin seed |
   while IFS=$'\t' read -r reducer args; do
     IFS=$'\t' read -ra args <<<"$args"
     # --no-config: `spacetime.json` would otherwise read "$DB" as the reducer name.

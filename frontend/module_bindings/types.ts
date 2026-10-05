@@ -44,6 +44,8 @@ export const AgvState = __t.object("AgvState", {
   },
   updatedAt: __t.timestamp(),
   alert: __t.bool(),
+  stateSentAt: __t.option(__t.timestamp()),
+  connectionSentAt: __t.option(__t.timestamp()),
 });
 export type AgvState = __Infer<typeof AgvState>;
 
@@ -81,6 +83,35 @@ export const FleetStatsRow = __t.object("FleetStatsRow", {
   alerts: __t.u64(),
 });
 export type FleetStatsRow = __Infer<typeof FleetStatsRow>;
+
+// The tagged union or sum type for the algebraic type `IngestBody`.
+export const IngestBody = __t.enum("IngestBody", {
+  get State() {
+    return IngestState;
+  },
+  get Connection() {
+    return ConnectionState;
+  },
+});
+export type IngestBody = __Infer<typeof IngestBody>;
+
+export const IngestMessage = __t.object("IngestMessage", {
+  manufacturer: __t.string(),
+  serialNumber: __t.string(),
+  sentAt: __t.timestamp(),
+  get body() {
+    return IngestBody;
+  },
+});
+export type IngestMessage = __Infer<typeof IngestMessage>;
+
+export const IngestState = __t.object("IngestState", {
+  mapId: __t.option(__t.string()),
+  get state() {
+    return AgvStateFields;
+  },
+});
+export type IngestState = __Infer<typeof IngestState>;
 
 export const Map = __t.object("Map", {
   mapId: __t.string(),

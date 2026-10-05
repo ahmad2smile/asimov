@@ -1,0 +1,21 @@
+[workspace]
+resolver = "3"
+members = ["simulator", "ingest-core", "spacetime-ingest", "tdengine-ingest", "ingest-e2e"]
+
+[workspace.package]
+edition = "2024"
+publish = false
+
+[workspace.dependencies]
+ingest-core = { path = "ingest-core" }
+asimov-simulator = { path = "simulator" }
+anyhow = "1"
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+rumqttc = { version = "0.25", default-features = false, features = ["url"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "sync", "time", "net"] }
+tracing = "0.1"
+
+[profile.release]
+strip = true

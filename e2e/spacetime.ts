@@ -20,6 +20,9 @@ export const remove = () => spacetime("delete", DB, ...BASE, "--yes");
 const call = (reducer: string, ...args: unknown[]) =>
   spacetime("call", DB, ...BASE, reducer, ...args.map((a) => JSON.stringify(a)));
 
+// VDA 5050 header timestamp of a message sent now, as SpacetimeDB JSON.
+const sentNow = () => ({ __timestamp_micros_since_unix_epoch__: Date.now() * 1000 });
+
 export const upsertMap = (mapId: string, name?: string) =>
   call("upsert_map", mapId, name === undefined ? { none: [] } : { some: name });
 
@@ -38,7 +41,7 @@ export const upsertState = (
     error: errorType
       ? { some: { error_type: errorType, error_level: { warning: [] } } }
       : { none: [] },
-  });
+  }, sentNow());
 
 export const upsertConnection = (manufacturer: string, serialNumber: string, state: string) =>
-  call("upsert_agv_connection", manufacturer, serialNumber, { [state]: [] });
+  call("upsert_agv_connection", manufacturer, serialNumber, { [state]: [] }, sentNow());

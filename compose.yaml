@@ -22,6 +22,19 @@ services:
       start_period: 5s
     restart: unless-stopped
 
+  spacetime-publish:
+    # Publishes the module (backend/) on every start, then exits. Ingest waits
+    # for it, so the schema always exists first.
+    build: ./backend
+    image: asimov-spacetime-publish
+    volumes:
+      # Same home as the server, so the publishing identity (database owner) is stable.
+      - spacetime-home:/home/spacetime
+    depends_on:
+      spacetimedb:
+        condition: service_healthy
+    restart: on-failure
+
   tdengine:
     # TDengine TSDB Community Edition (published as tdengine/tdengine before 3.3.7).
     image: tdengine/tsdb:3.4.2.8
@@ -44,18 +57,6 @@ services:
       start_period: 10s
     restart: unless-stopped
 
-  tdengine-init:
-    # One-shot, run by `npm run infra:up`: applies config/tdengine.sql
-    # (idempotent; one statement per line). The profile keeps it out of `up`.
-    profiles: [init]
-    image: tdengine/tsdb:3.4.2.8
-    depends_on:
-      tdengine:
-        condition: service_healthy
-    volumes:
-      - ./config/tdengine.sql:/tdengine.sql:ro
-    entrypoint: ["taos", "-h", "tdengine", "-f", "/tdengine.sql"]
-
   mosquitto:
     image: eclipse-mosquitto:2.1.2-alpine
     ports:
@@ -74,8 +75,10 @@ services:
   agv-simulator:
     # Simulated AGV fleet (several sites, mixed manufacturers) publishing
     # VDA 5050 2.1.0 connection/state/visualization messages to
-    # uagv/v2/<manufacturer>/<serialNumber>/<topic>. See simulator/.
-    build: ./simulator
+    # <siteId>/uagv/v2/<manufacturer>/<serialNumber>/<topic>. See services/simulator/.
+    build:
+      context: ./services
+      dockerfile: simulator/Dockerfile
     image: asimov-agv-simulator
     # Forward SIGTERM so the AGVs publish OFFLINE before disconnecting.
     init: true
@@ -92,8 +95,96 @@ services:
       VISUALIZATION_INTERVAL_MS: ${VISUALIZATION_INTERVAL_MS:-1000}
     restart: unless-stopped
 
+  spacetime-ingest:
+    # MQTT -> SpacetimeDB (latest state per AGV). See services/spacetime-ingest/.
+    build:
+      context: ./services
+      dockerfile: spacetime-ingest/Dockerfile
+    image: asimov-spacetime-ingest
+    init: true
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      spacetime-publish:
+        condition: service_completed_successfully
+    environment:
+      RUST_LOG: ${INGEST_LOG:-info}
+    volumes:
+      - ./config/services/spacetime-ingest.json:/etc/spacetime-ingest/config.json:ro
+    healthcheck:
+      test: ["CMD", "spacetime-ingest", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  tdengine-ingest:
+    # MQTT -> TDengine (history of every message). See services/tdengine-ingest/.
+    build:
+      context: ./services
+      dockerfile: tdengine-ingest/Dockerfile
+    image: asimov-tdengine-ingest
+    init: true
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      tdengine:
+        condition: service_healthy
+    environment:
+      RUST_LOG: ${INGEST_LOG:-info}
+      TDENGINE_PASSWORD: ${TDENGINE_PASSWORD:-taosdata}
+    volumes:
+      - ./config/services/tdengine-ingest.json:/etc/tdengine-ingest/config.json:ro
+    healthcheck:
+      test: ["CMD", "tdengine-ingest", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  otel-collector:
+    # Receives OTLP metrics from the ingest services; Prometheus scrapes it.
+    image: otel/opentelemetry-collector-contrib:0.161.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./config/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:13.2.3
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      # Local only: anonymous viewers are admins, no login.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./config/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
 volumes:
   spacetime-home:
   tdengine-data:
   tdengine-log:
   mosquitto-data:
+  prometheus-data:
+  grafana-data:

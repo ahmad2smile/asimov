@@ -20,4 +20,5 @@ export default {
   get state() {
     return AgvStateFields;
   },
+  sentAt: __t.timestamp(),
 };

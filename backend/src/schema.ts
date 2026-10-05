@@ -1,4 +1,4 @@
-// VDA 5050 AGV tables. Types mirror the message shapes in `simulator/src/agv.rs`
+// VDA 5050 AGV tables. Types mirror the message shapes in `services/simulator/src/agv.rs`
 // (VDA 5050 2.1.0), trimmed to the fields a dashboard needs.
 
 import { schema, table, t } from "spacetimedb/server";
@@ -80,6 +80,12 @@ export const agvState = table(
     updatedAt: t.timestamp(),
     // `error` is set; indexed so `fleet_stats` can count alerts.
     alert: t.bool().index("btree"),
+    // VDA 5050 header timestamps of the stored `state` and `connection`
+    // messages; unset until one arrives. Older messages are ignored, since
+    // several ingest instances can deliver one AGV's messages out of order.
+    // Last, with defaults, so existing databases migrate without data loss.
+    stateSentAt: t.option(t.timestamp()).default(undefined),
+    connectionSentAt: t.option(t.timestamp()).default(undefined),
   },
 );
 

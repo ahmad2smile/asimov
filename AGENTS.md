@@ -82,6 +82,7 @@ Subscriptions replicate database rows to clients in real-time.
 4. **React to changes**: Use callbacks (`onInsert`, `onDelete`, `onUpdate`)
 
 Best practices:
+
 - Group subscriptions by lifetime
 - Subscribe before unsubscribing when updating subscriptions
 - Avoid overlapping queries
@@ -108,7 +109,6 @@ Lifecycle: Write → Compile → Publish (`spacetime publish`) → Hot-swap (rep
 - Always use `ctx.sender` / `ctx.Sender` / `ctx.sender()` for authorization.
 
 SpacetimeDB works with many OIDC providers, including SpacetimeAuth (built-in), Auth0, Clerk, Keycloak, Google, and GitHub.
-
 
 # SpacetimeDB CLI
 
@@ -226,41 +226,45 @@ spacetime logout
 
 ## Default Servers
 
-| Name | URL | Description |
-|------|-----|-------------|
+| Name        | URL                                 | Description                |
+| ----------- | ----------------------------------- | -------------------------- |
 | `maincloud` | `https://maincloud.spacetimedb.com` | Production cloud (default) |
-| `local` | `http://127.0.0.1:3000` | Local development server |
+| `local`     | `http://127.0.0.1:3000`             | Local development server   |
 
 ## Common Flags
 
-| Flag | Short | Description |
-|------|-------|-------------|
-| `--server` | `-s` | Target server (nickname, hostname, or URL) |
-| `--yes` | `-y` | Non-interactive mode (skip confirmations) |
-| `--anonymous` | | Use anonymous identity |
-| `--module-path` | `-p` | Path to module project |
+| Flag            | Short | Description                                |
+| --------------- | ----- | ------------------------------------------ |
+| `--server`      | `-s`  | Target server (nickname, hostname, or URL) |
+| `--yes`         | `-y`  | Non-interactive mode (skip confirmations)  |
+| `--anonymous`   |       | Use anonymous identity                     |
+| `--module-path` | `-p`  | Path to module project                     |
 
 ## Troubleshooting
 
 ### "Not logged in"
+
 ```bash
 spacetime login
 # Or use --anonymous for public operations
 ```
 
 ### "Server not responding"
+
 ```bash
 spacetime server ping <server>
 # For local: ensure spacetime start is running
 ```
 
 ### "Schema conflict"
+
 ```bash
 # Clear data and republish
 spacetime publish my-db --delete-data=always --yes
 ```
 
 ### "Build failed"
+
 ```bash
 # Check Rust/C# toolchain
 rustup show
@@ -273,7 +277,6 @@ rustup target add wasm32-unknown-unknown
 **Server-side (modules):** Rust, C#, TypeScript, C++
 **Client SDKs:** TypeScript, C#, Rust, Unreal Engine
 **CLI `generate` targets:** TypeScript, C#, Rust, Unreal C++
-
 
 # SpacetimeDB Rust SDK Reference
 
@@ -312,21 +315,21 @@ Options: `accessor = snake_case` (required), `public`, `scheduled(reducer_fn)`, 
 
 ## Column Types
 
-| Rust type | Notes |
-|-----------|-------|
-| `u8` / `u16` / `u32` / `u64` / `u128` | unsigned integers |
-| `i8` / `i16` / `i32` / `i64` / `i128` | signed integers |
-| `spacetimedb::sats::u256` / `spacetimedb::sats::i256` | 256-bit integers |
-| `f32` / `f64` | floats |
-| `bool` | boolean |
-| `String` | text |
-| `Vec<T>` | list/array |
-| `Identity` | user identity |
-| `ConnectionId` | connection handle |
-| `Timestamp` | server timestamp (microseconds since epoch) |
-| `TimeDuration` | duration in microseconds |
-| `Uuid` | UUID |
-| `Option<T>` | nullable column |
+| Rust type                                             | Notes                                       |
+| ----------------------------------------------------- | ------------------------------------------- |
+| `u8` / `u16` / `u32` / `u64` / `u128`                 | unsigned integers                           |
+| `i8` / `i16` / `i32` / `i64` / `i128`                 | signed integers                             |
+| `spacetimedb::sats::u256` / `spacetimedb::sats::i256` | 256-bit integers                            |
+| `f32` / `f64`                                         | floats                                      |
+| `bool`                                                | boolean                                     |
+| `String`                                              | text                                        |
+| `Vec<T>`                                              | list/array                                  |
+| `Identity`                                            | user identity                               |
+| `ConnectionId`                                        | connection handle                           |
+| `Timestamp`                                           | server timestamp (microseconds since epoch) |
+| `TimeDuration`                                        | duration in microseconds                    |
+| `Uuid`                                                | UUID                                        |
+| `Option<T>`                                           | nullable column                             |
 
 ## Column Attributes
 
@@ -648,7 +651,6 @@ pub fn add_record(ctx: &ReducerContext, value: u32) {
 }
 ```
 
-
 # SpacetimeDB TypeScript Client
 
 Generated bindings convert snake_case names to camelCase, including row fields: a server column `trip_id` is `tripId` on client rows.
@@ -684,24 +686,32 @@ ReactDOM.createRoot(document.getElementById('root')!).render(<Root />);
 ## React: App.tsx
 
 ```typescript
-import { useTable, useSpacetimeDB } from 'spacetimedb/react';
-import { DbConnection, tables } from './module_bindings';
+import { useTable, useSpacetimeDB } from "spacetimedb/react";
+import { DbConnection, tables } from "./module_bindings";
 
 function App() {
-  const { isActive, identity: myIdentity, token, getConnection } = useSpacetimeDB();
+  const {
+    isActive,
+    identity: myIdentity,
+    token,
+    getConnection,
+  } = useSpacetimeDB();
   const conn = getConnection() as DbConnection | null;
 
   // Save auth token
-  useEffect(() => { if (token) localStorage.setItem('auth_token', token); }, [token]);
+  useEffect(() => {
+    if (token) localStorage.setItem("auth_token", token);
+  }, [token]);
 
   // Subscribe when connected. Prefer typed query builders over raw SQL
   useEffect(() => {
     if (!conn || !isActive) return;
-    conn.subscriptionBuilder()
+    conn
+      .subscriptionBuilder()
       .onApplied(() => setSubscribed(true))
       .subscribe([tables.entity, tables.record]);
-      // Or with filters: tables.entity.where(r => r.active.eq(true))
-      // Or raw SQL:      'SELECT * FROM entity'
+    // Or with filters: tables.entity.where(r => r.active.eq(true))
+    // Or raw SQL:      'SELECT * FROM entity'
   }, [conn, isActive]);
 
   // Reactive data. Returns [rows, isReady]
@@ -710,12 +720,12 @@ function App() {
 
   // useTable with row callbacks
   const [onlineUsers] = useTable(
-    tables.entity.where(r => r.active.eq(true)),
+    tables.entity.where((r) => r.active.eq(true)),
     {
-      onInsert: (user) => console.log('User connected:', user.name),
-      onDelete: (user) => console.log('User disconnected:', user.name),
-      onUpdate: (oldUser, newUser) => console.log('Updated:', newUser.name),
-    }
+      onInsert: (user) => console.log("User connected:", user.name),
+      onDelete: (user) => console.log("User disconnected:", user.name),
+      onUpdate: (oldUser, newUser) => console.log("Updated:", newUser.name),
+    },
   );
 
   // Call reducers with object syntax
@@ -729,22 +739,25 @@ function App() {
 ## Vanilla (non-React)
 
 ```typescript
-import { DbConnection, tables } from './module_bindings';
+import { DbConnection, tables } from "./module_bindings";
 
 const conn = DbConnection.builder()
-  .withUri('wss://maincloud.spacetimedb.com')
-  .withDatabaseName('my_module')
+  .withUri("wss://maincloud.spacetimedb.com")
+  .withDatabaseName("my_module")
   .onConnect((ctx) => {
-    ctx.subscriptionBuilder()
-      .onApplied(() => console.log('Ready'))
+    ctx
+      .subscriptionBuilder()
+      .onApplied(() => console.log("Ready"))
       .subscribe([tables.user, tables.message]);
   })
   .build();
 
 // Row callbacks
-conn.db.user.onInsert((ctx, user) => console.log('Joined:', user.name));
-conn.db.user.onDelete((ctx, user) => console.log('Left:', user.name));
-conn.db.user.onUpdate((ctx, oldUser, newUser) => console.log('Updated:', newUser.name));
+conn.db.user.onInsert((ctx, user) => console.log("Joined:", user.name));
+conn.db.user.onDelete((ctx, user) => console.log("Left:", user.name));
+conn.db.user.onUpdate((ctx, oldUser, newUser) =>
+  console.log("Updated:", newUser.name),
+);
 ```
 
 ## Gotchas

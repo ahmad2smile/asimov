@@ -1,0 +1,37 @@
+{
+  "mqtt": {
+    "url": "mqtt://mosquitto:1883",
+    "clientIdPrefix": "spacetime-ingest",
+    "group": "spacetime-ingest"
+  },
+  "sites": [
+    {
+      "id": "hamburg",
+      "topicPrefix": "hamburg/uagv/v2"
+    },
+    {
+      "id": "rotterdam",
+      "topicPrefix": "rotterdam/uagv/v2"
+    },
+    {
+      "id": "poznan",
+      "topicPrefix": "poznan/uagv/v2"
+    },
+    {
+      "id": "lyon",
+      "topicPrefix": "lyon/uagv/v2"
+    },
+    {
+      "id": "milan",
+      "topicPrefix": "milan/uagv/v2"
+    }
+  ],
+  "spacetime": {
+    "uri": "ws://spacetimedb:3000",
+    "database": "asimov"
+  },
+  "telemetry": {
+    "otlpEndpoint": "http://otel-collector:4317",
+    "healthPort": 8080
+  }
+}

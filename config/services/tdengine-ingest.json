@@ -1,0 +1,41 @@
+{
+  "mqtt": {
+    "url": "mqtt://mosquitto:1883",
+    "clientIdPrefix": "tdengine-ingest",
+    "group": "tdengine-ingest"
+  },
+  "sites": [
+    {
+      "id": "hamburg",
+      "topicPrefix": "hamburg/uagv/v2"
+    },
+    {
+      "id": "rotterdam",
+      "topicPrefix": "rotterdam/uagv/v2"
+    },
+    {
+      "id": "poznan",
+      "topicPrefix": "poznan/uagv/v2"
+    },
+    {
+      "id": "lyon",
+      "topicPrefix": "lyon/uagv/v2"
+    },
+    {
+      "id": "milan",
+      "topicPrefix": "milan/uagv/v2"
+    }
+  ],
+  "tdengine": {
+    "dsn": "ws://tdengine:6041",
+    "database": "asimov",
+    "batchMaxWaitMs": 500
+  },
+  "buffer": {
+    "maxMessages": 500000
+  },
+  "telemetry": {
+    "otlpEndpoint": "http://otel-collector:4317",
+    "healthPort": 8080
+  }
+}

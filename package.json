@@ -11,15 +11,18 @@
     "build": "tsc -b && vite build --config config/vite.config.ts",
     "preview": "vite preview --config config/vite.config.ts",
     "typecheck": "tsc --noEmit",
-    "infra:up": "docker compose up -d --build --wait && docker compose run --rm tdengine-init",
+    "infra:up": "docker compose up -d --build --wait",
     "infra:down": "docker compose down",
     "infra:logs": "docker compose logs -f",
     "spacetime:generate": "spacetime generate --lang typescript --out-dir frontend/module_bindings --module-path backend --yes",
-    "spacetime:publish": "spacetime publish --yes",
+    "spacetime:publish": "docker compose run --rm --build spacetime-publish",
     "spacetime:test": "node backend/tests/fleet_stats.test.ts",
     "e2e": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test",
     "unit": "node --test frontend/lib/paging.test.ts",
-    "simulator:test": "cargo test --release --manifest-path simulator/Cargo.toml"
+    "simulator:test": "cargo test --release --manifest-path services/Cargo.toml -p asimov-simulator",
+    "spacetime:generate:rust": "spacetime generate --lang rust --out-dir services/spacetime-ingest/src/module_bindings --module-path backend --yes",
+    "services:test": "cargo test --manifest-path services/Cargo.toml --workspace --exclude asimov-simulator",
+    "services:e2e": "cargo build --manifest-path services/Cargo.toml -p spacetime-ingest -p tdengine-ingest && cargo test --manifest-path services/Cargo.toml -p ingest-e2e -- --ignored --test-threads=1"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

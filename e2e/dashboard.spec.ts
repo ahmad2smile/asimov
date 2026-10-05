@@ -139,3 +139,16 @@ test("changing the search on page 2 returns to page 1", async ({ page }) => {
   await expect(page.getByText("1–9")).toBeVisible();
   await expect(page.getByRole("button", { name: "Previous page" })).toBeDisabled();
 });
+
+test("connects again after the server rejects the stored token", async ({ page }) => {
+  // The key is `<host>/<database>/auth_token`, see `frontend/main.tsx`.
+  // The script runs on every load, so plant the token once only.
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("planted")) return;
+    sessionStorage.setItem("planted", "1");
+    localStorage.setItem("ws://localhost:3000/asimov-e2e/auth_token", "not-a-valid-token");
+  });
+  await page.goto("/");
+  await expect(page.getByText("Live")).toBeVisible();
+  await expect(rows(page)).toHaveCount(10);
+});

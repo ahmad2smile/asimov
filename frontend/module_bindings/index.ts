@@ -34,6 +34,7 @@ import {
 } from "spacetimedb";
 
 // Import all reducer arg schemas
+import IngestReducer from "./ingest_reducer";
 import UpsertAgvReducer from "./upsert_agv_reducer";
 import UpsertAgvConnectionReducer from "./upsert_agv_connection_reducer";
 import UpsertAgvStateReducer from "./upsert_agv_state_reducer";
@@ -106,6 +107,7 @@ const tablesSchema = __schema({
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
+  __reducerSchema("ingest", IngestReducer),
   __reducerSchema("upsert_agv", UpsertAgvReducer),
   __reducerSchema("upsert_agv_connection", UpsertAgvConnectionReducer),
   __reducerSchema("upsert_agv_state", UpsertAgvStateReducer),
